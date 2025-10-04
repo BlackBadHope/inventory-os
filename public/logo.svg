@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#111827"/>
+
+  <!-- Box/Container -->
+  <rect x="100" y="100" width="312" height="312" fill="none" stroke="#facc15" stroke-width="24" rx="8"/>
+
+  <!-- Shelf line -->
+  <line x1="100" y1="256" x2="412" y2="256" stroke="#facc15" stroke-width="16"/>
+
+  <!-- Text IO -->
+  <text x="256" y="280" font-family="Arial, sans-serif" font-size="140" font-weight="bold" fill="#facc15" text-anchor="middle">IO</text>
+</svg>
