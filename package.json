@@ -2,6 +2,7 @@
   "name": "inventory-os",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://blackbadhope.github.io/inventory-os",
   "description": "Inventory OS v2.4 — система управления запасами с AI-ассистентом.",
   "scripts": {
     "start": "react-scripts start",
