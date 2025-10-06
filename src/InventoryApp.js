@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { signInAnonymously, onAuthStateChanged, auth, doc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, query, writeBatch, getDocs, serverTimestamp, migrateFromLocalStorage } from './lib/indexedDB';
-import { Plus, Trash2, Edit, Home, Box, List, Info, ShoppingCart, XCircle, BrainCircuit, Bot, Send, AlertTriangle, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, Edit, Home, Box, List, Info, ShoppingCart, XCircle, BrainCircuit, Bot, Send, AlertTriangle, ChevronRight, Settings } from 'lucide-react';
 import { ASCII_COLORS, UNITS } from './lib/constants';
 import ItemCard from './components/ItemCard';
 import InputModal from './components/InputModal';
 import InfoModal from './components/InfoModal';
+import SettingsModal from './components/SettingsModal';
 
 // --- Authentication Wrapper ---
 export default function InventoryApp({ user }) {
@@ -66,6 +67,11 @@ function MainInventoryApp({ user, userProfile }) {
   const [showInputModal, setShowInputModal] = useState(false);
   const [inputModalConfig, setInputModalConfig] = useState({ title: '', label: '', onSubmit: null, initialValue: '' });
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settings, setSettings] = useState(() => {
+    const saved = localStorage.getItem('inventory-os-settings');
+    return saved ? JSON.parse(saved) : { zoom: 100 };
+  });
   const [showBucket, setShowBucket] = useState(false);
   const [itemToMove, setItemToMove] = useState(null);
   const [containerToMove, setContainerToMove] = useState(null);
@@ -95,7 +101,19 @@ function MainInventoryApp({ user, userProfile }) {
   useEffect(() => { if (!selectedRoomId) { setShelves([]); return; } const unsub = onSnapshot(query(collection(`users/${userId}/warehouses/${selectedWarehouseId}/rooms/${selectedRoomId}/shelves`)), s => setShelves(s.docs.map(d => ({ id: d.id, ...d.data() })))); return () => unsub(); }, [selectedRoomId, userId, selectedWarehouseId]);
   useEffect(() => { if (!userId) return; const unsub = onSnapshot(query(collection(`users/${userId}/bucket`)), s => setBucketItems(s.docs.map(d => ({ id: d.id, ...d.data() })))); return () => unsub(); }, [userId]);
   useEffect(() => { chatMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory]);
-  
+
+  // --- Settings ---
+  const handleSettingsChange = (newSettings) => {
+    setSettings(newSettings);
+    localStorage.setItem('inventory-os-settings', JSON.stringify(newSettings));
+  };
+
+  useEffect(() => {
+    const baseSize = 16; // базовый размер браузера
+    const newSize = (baseSize * settings.zoom) / 100;
+    document.documentElement.style.fontSize = `${newSize}px`;
+  }, [settings.zoom]);
+
   // --- Helper & CRUD ---
   const showNotification = (message, type = 'success') => { if (type === 'success') setSuccessMessage(message); else setErrorMessage(message); setTimeout(() => { setSuccessMessage(''); setErrorMessage(''); }, 3000); };
   const handleConfirm = (action, message) => { setConfirmAction(() => () => action()); setConfirmMessage(message); setShowConfirmModal(true); };
@@ -353,6 +371,7 @@ function MainInventoryApp({ user, userProfile }) {
 
       {/* Modals */}
       <InfoModal show={showInfoModal} onCancel={() => setShowInfoModal(false)} />
+      <SettingsModal show={showSettingsModal} onClose={() => setShowSettingsModal(false)} settings={settings} onSettingsChange={handleSettingsChange} />
       <InputModal show={showInputModal} title={inputModalConfig.title} label={inputModalConfig.label} initialValue={inputModalConfig.initialValue} onSubmit={inputModalConfig.onSubmit} onCancel={() => setShowInputModal(false)} />
       {showConfirmModal && ( <div className={`fixed inset-0 ${ASCII_COLORS.bg} bg-opacity-80 flex items-center justify-center p-4 z-[100]`}> <div className={`${ASCII_COLORS.modalBg} p-6 rounded-lg shadow-xl w-full max-w-sm border-2 ${ASCII_COLORS.border}`}> <h2 className={`text-xl font-bold mb-4 ${ASCII_COLORS.accent} flex items-center`}><AlertTriangle className="mr-2"/>CONFIRM ACTION</h2> <p className="mb-6">{confirmMessage}</p> <div className="flex justify-end space-x-3"> <button onClick={() => setShowConfirmModal(false)} className={`${ASCII_COLORS.buttonBg} ${ASCII_COLORS.text} p-2 px-4 rounded-md ${ASCII_COLORS.buttonHoverBg} border ${ASCII_COLORS.border}`}>[CANCEL]</button> <button onClick={executeConfirmedAction} className={`${ASCII_COLORS.buttonBg} text-red-400 p-2 px-4 rounded-md hover:bg-red-900 border ${ASCII_COLORS.border}`}>[CONFIRM]</button> </div> </div> </div> )}
       {showAddItemModal.show && ( <div className={`fixed inset-0 ${ASCII_COLORS.bg} bg-opacity-90 flex items-center justify-center z-40 p-4`}> <div className={`${ASCII_COLORS.modalBg} p-6 rounded-lg shadow-xl w-full max-w-lg border-2 ${ASCII_COLORS.border} max-h-[90vh] flex flex-col`}> <h2 className={`text-xl font-bold mb-4 ${ASCII_COLORS.accent}`}>{editingItemId ? '[EDIT ITEM]' : '[ADD NEW ITEM]'}</h2> <form onSubmit={(e) => { e.preventDefault(); handleAddItem(); }} className="space-y-3 overflow-y-auto pr-2"> <div className="grid grid-cols-1 sm:grid-cols-2 gap-3"> <div><label className="block text-sm">Name:</label><input value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} className={`w-full p-2 border ${ASCII_COLORS.border} rounded ${ASCII_COLORS.inputBg}`} required /></div> <div><label className="block text-sm">Category:</label><select value={newItem.category} onChange={e => { const val = e.target.value; if (val === '__ADD_NEW__') { const newCat = prompt('Enter new category name:'); if (newCat && newCat.trim() && !userCategories.includes(newCat.trim())) { setUserCategories([...userCategories, newCat.trim()]); setNewItem({...newItem, category: newCat.trim()}); } } else { setNewItem({...newItem, category: val}); } }} className={`w-full p-2 border ${ASCII_COLORS.border} rounded ${ASCII_COLORS.inputBg}`}><option value="">-- Select Category --</option>{userCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}<option value="__ADD_NEW__">+ Add New Category</option></select></div> <div><label className="block text-sm">Quantity:</label><input type="number" step="any" value={newItem.quantity} onChange={e => setNewItem({...newItem, quantity: e.target.value})} className={`w-full p-2 border ${ASCII_COLORS.border} rounded ${ASCII_COLORS.inputBg}`} required min="0.01"/></div> <div><label className="block text-sm">Unit:</label><select value={newItem.unit} onChange={e => setNewItem({...newItem, unit: e.target.value})} className={`w-full p-2 border ${ASCII_COLORS.border} rounded ${ASCII_COLORS.inputBg}`}>{UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select></div> <div><label className="block text-sm">Price ({userProfile.currency}):</label><input type="number" step="0.01" value={newItem.price} onChange={e => setNewItem({...newItem, price: e.target.value})} className={`w-full p-2 border ${ASCII_COLORS.border} rounded ${ASCII_COLORS.inputBg}`} /></div> <div><label className="block text-sm">Purchase Date:</label><input type="date" value={newItem.purchaseDate} onChange={e => setNewItem({...newItem, purchaseDate: e.target.value})} className={`w-full p-2 border ${ASCII_COLORS.border} rounded ${ASCII_COLORS.inputBg}`} /></div> <div><label className="block text-sm">Expiry Date:</label><input type="date" value={newItem.expiryDate} onChange={e => setNewItem({...newItem, expiryDate: e.target.value})} className={`w-full p-2 border ${ASCII_COLORS.border} rounded ${ASCII_COLORS.inputBg}`} /></div> </div> <div><label className="block text-sm">Description:</label><textarea value={newItem.description} onChange={e => setNewItem({...newItem, description: e.target.value})} className={`w-full p-2 border ${ASCII_COLORS.border} rounded ${ASCII_COLORS.inputBg}`} rows="2"></textarea></div> <div className="flex justify-end space-x-3 pt-4"><button type="button" onClick={() => {setShowAddItemModal({show: false, path: ''}); setEditingItemId(null);}} className={`${ASCII_COLORS.buttonBg} ${ASCII_COLORS.text} p-2 px-4 rounded-md ${ASCII_COLORS.buttonHoverBg} border ${ASCII_COLORS.border}`}>[CANCEL]</button><button type="submit" className={`${ASCII_COLORS.buttonBg} ${ASCII_COLORS.accent} p-2 px-4 rounded-md ${ASCII_COLORS.buttonHoverBg} border ${ASCII_COLORS.border}`}>{editingItemId ? '[SAVE CHANGES]' : '[ADD ITEM]'}</button></div> </form> </div> </div> )}
@@ -361,6 +380,7 @@ function MainInventoryApp({ user, userProfile }) {
       <header className="flex flex-wrap items-center justify-between mb-6 border-b-2 pb-4 border-dashed border-yellow-700">
         <h1 className={`${ASCII_COLORS.accent} text-2xl sm:text-3xl font-bold`}>[ INVENTORY OS v2.4 ]</h1>
         <div className="flex items-center space-x-2 mt-2 sm:mt-0">
+          <button onClick={() => setShowSettingsModal(true)} className={`${ASCII_COLORS.buttonBg} p-2 rounded-md ${ASCII_COLORS.buttonHoverBg} border ${ASCII_COLORS.border}`} title="Settings"><Settings/></button>
           <button onClick={() => setShowInfoModal(true)} className={`${ASCII_COLORS.buttonBg} p-2 rounded-md ${ASCII_COLORS.buttonHoverBg} border ${ASCII_COLORS.border}`} title="Info"><Info/></button>
           <button disabled className={`${ASCII_COLORS.buttonBg} p-2 rounded-md border ${ASCII_COLORS.border} opacity-50 cursor-not-allowed`} title="AI Assistant (Coming Soon)"><BrainCircuit/></button>
           <button onClick={() => { setShowBucket(!showBucket); setItemToMove(null); }} className={`${ASCII_COLORS.buttonBg} p-2 rounded-md ${ASCII_COLORS.buttonHoverBg} border ${ASCII_COLORS.border} relative`} title="Bucket">
